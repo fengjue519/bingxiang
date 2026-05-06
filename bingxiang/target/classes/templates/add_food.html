@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>添加食品 - 智能冰箱管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #764ba2;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-card">
+            <h1>➕ 添加食品</h1>
+
+            <form th:action="@{/inventory/add}" method="post">
+                <div class="form-group">
+                    <label for="foodName">食品名称 *</label>
+                    <input type="text" id="foodName" name="foodName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="categoryId">分类</label>
+                    <select id="categoryId" name="categoryId">
+                        <option value="">选择分类</option>
+                        <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.name}"></option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">数量 *</label>
+                    <input type="number" id="quantity" name="quantity" step="0.1" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="unit">单位 *</label>
+                    <select id="unit" name="unit" required>
+                        <option value="个">个</option>
+                        <option value="斤">斤</option>
+                        <option value="克">克</option>
+                        <option value="千克">千克</option>
+                        <option value="升">升</option>
+                        <option value="毫升">毫升</option>
+                        <option value="瓶">瓶</option>
+                        <option value="盒">盒</option>
+                        <option value="袋">袋</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="purchaseDate">购买日期</label>
+                    <input type="date" id="purchaseDate" name="purchaseDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="expiryDate">过期日期</label>
+                    <input type="date" id="expiryDate" name="expiryDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="storageLocation">存放位置</label>
+                    <select id="storageLocation" name="storageLocation">
+                        <option value="冷藏室">冷藏室</option>
+                        <option value="冷冻室">冷冻室</option>
+                        <option value="保鲜层">保鲜层</option>
+                        <option value="门架">门架</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">备注</label>
+                    <textarea id="notes" name="notes" placeholder="其他备注信息"></textarea>
+                </div>
+
+                <button type="submit" class="btn">添加食品</button>
+            </form>
+
+            <a th:href="@{/inventory}" class="back-link">返回库存管理</a>
+        </div>
+    </div>
+</body>
+</html>

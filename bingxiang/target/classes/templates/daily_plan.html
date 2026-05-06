@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>今日菜谱 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 15px; text-decoration: none; color: #667eea; font-weight: 500; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 16px; }
+        .btn:hover { background: #764ba2; }
+        .btn:disabled { background: #ccc; }
+        textarea, input, select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 14px; font-family: inherit; }
+        textarea { min-height: 80px; resize: vertical; }
+        .ai-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .meal-card { background: #f9f9ff; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #667eea; }
+        .meal-card h3 { color: #667eea; margin-bottom: 10px; }
+        .meal-section { margin: 10px 0; padding: 10px; background: white; border-radius: 8px; }
+        .meal-section h4 { color: #333; margin-bottom: 8px; }
+        .meal-section p { color: #555; line-height: 1.6; white-space: pre-line; }
+        .shopping-item { display: flex; justify-content: space-between; align-items: center; background: #fff3cd; padding: 10px 15px; border-radius: 5px; margin-bottom: 8px; }
+        .shopping-item .priority-high { color: #e53935; font-weight: bold; }
+        .shopping-item .priority-mid { color: #ff9800; font-weight: bold; }
+        .shopping-item .priority-low { color: #4caf50; }
+        .loading { text-align: center; padding: 30px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .warning-box { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #856404; }
+        .form-row { display: flex; gap: 15px; margin: 15px 0; }
+        .form-row > div { flex: 1; }
+        .fav-btn { background: #ff9800; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📅 一键生成今日菜谱</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/ai/nutrition}">营养分析</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div th:if="${!aiConfigured}" class="warning-box">
+            ⚠️ AI服务未配置。请在 <code>application.properties</code> 中设置 <code>doubao.api.key</code>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 一键生成今日三餐</h2>
+
+            <div class="form-row">
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:500;">用餐人数</label>
+                    <input type="number" id="peopleCount" value="2" min="1" max="10">
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:8px; color:#333; font-weight:500;">饮食偏好（可选）</label>
+                    <textarea id="preferences" placeholder="例如：不吃辣、低脂、素食、清淡口味..."></textarea>
+                </div>
+            </div>
+
+            <button class="btn" id="generateBtn" onclick="generateDailyPlan()">
+                🤖 一键生成今日菜谱
+            </button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: #667eea;">AI正在规划今日三餐，请稍候...</p>
+        </div>
+
+        <div id="result" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 今日菜谱</h2>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateDailyPlan() {
+            const preferences = document.getElementById('preferences').value;
+            const peopleCount = parseInt(document.getElementById('peopleCount').value) || 2;
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('generateBtn').disabled = true;
+
+            const formData = new FormData();
+            formData.append('preferences', preferences);
+            formData.append('peopleCount', peopleCount);
+
+            fetch('/ai/daily-plan', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                if (data.success) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('resultContent').innerHTML = formatDailyPlan(data.aiResponse);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+                alert('请求失败：' + err.message);
+            });
+        }
+
+        function formatDailyPlan(response) {
+            try {
+                let data = response;
+                if (typeof response === 'string') {
+                    const match = response.match(/\{[\s\S]*\}/);
+                    if (match) data = JSON.parse(match[0]);
+                    else return '<div class="meal-card"><p>' + response.replace(/\n/g, '<br>') + '</p></div>';
+                }
+
+                let html = '';
+                const meals = [
+                    { key: 'breakfast', icon: '🌅', label: '早餐' },
+                    { key: 'lunch', icon: '☀️', label: '午餐' },
+                    { key: 'dinner', icon: '🌙', label: '晚餐' }
+                ];
+
+                meals.forEach(meal => {
+                    if (data[meal.key]) {
+                        const m = data[meal.key];
+                        html += '<div class="meal-card">';
+                        html += '<h3>' + meal.icon + ' ' + meal.label + '：' + (m.name || '') + '</h3>';
+                        if (m.ingredients) html += '<div class="meal-section"><h4>🥗 食材</h4><p>' + m.ingredients + '</p></div>';
+                        if (m.seasonings) html += '<div class="meal-section"><h4>🧂 调料</h4><p>' + m.seasonings + '</p></div>';
+                        if (m.steps) html += '<div class="meal-section"><h4>📝 做法</h4><p>' + m.steps + '</p></div>';
+                        if (m.nutrition) html += '<div class="meal-section"><h4>💪 营养</h4><p>' + m.nutrition + '</p></div>';
+                        html += '</div>';
+                    }
+                });
+
+                if (data.shopping_list && Array.isArray(data.shopping_list)) {
+                    html += '<div class="meal-card" style="border-left-color: #ff9800;">';
+                    html += '<h3 style="color: #ff9800;">🛒 需要购买的食材</h3>';
+                    data.shopping_list.forEach(item => {
+                        const priorityClass = item.priority === '高' ? 'priority-high' : (item.priority === '中' ? 'priority-mid' : 'priority-low');
+                        html += '<div class="shopping-item">';
+                        html += '<div><strong>' + item.name + '</strong> <span style="color:#666;">' + (item.quantity || '') + '</span></div>';
+                        html += '<div><span class="' + priorityClass + '">' + (item.priority || '') + '</span> <span style="color:#666; font-size:13px;">' + (item.reason || '') + '</span></div>';
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+
+                if (data.nutrition_summary) html += '<div class="meal-card"><h3>📊 今日营养总结</h3><p style="white-space:pre-line; color:#555;">' + data.nutrition_summary + '</p></div>';
+                if (data.calories_estimate) html += '<div class="meal-card"><h3>🔥 预计总热量</h3><p style="color:#e53935; font-size:18px; font-weight:bold;">' + data.calories_estimate + '</p></div>';
+
+                html += '<button class="fav-btn" onclick="saveFavorite()">⭐ 收藏今日菜谱</button>';
+                return html;
+            } catch (e) {
+                return '<div class="meal-card"><p>' + response.replace(/\n/g, '<br>') + '</p></div>';
+            }
+        }
+
+        function saveFavorite() {
+            const content = document.getElementById('resultContent').innerText;
+            const today = new Date().toLocaleDateString('zh-CN');
+            fetch('/ai/favorite-recipe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'recipeName=' + encodeURIComponent('今日菜谱-' + today) + '&content=' + encodeURIComponent(content)
+            })
+            .then(r => r.json())
+            .then(data => alert(data.message))
+            .catch(err => alert('收藏失败'));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存管理 - 智能冰箱管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #764ba2;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #764ba2;
+        }
+        .btn-danger {
+            background: #e53935;
+        }
+        .btn-danger:hover {
+            background: #c62828;
+        }
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background: #f5f5f5;
+            color: #667eea;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: #f9f9f9;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-good {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-danger {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📦 库存管理</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存管理</a>
+                <a th:href="@{/recipes}">菜谱推荐</a>
+                <a th:href="@{/alerts}">过期提醒</a>
+                <a th:href="@{/logout}">退出登录</a>
+            </nav>
+        </header>
+
+        <div class="card">
+            <div style="margin-bottom: 20px;">
+                <a th:href="@{/inventory/add}" class="btn">➕ 添加食品</a>
+            </div>
+
+            <div th:if="${#lists.isEmpty(items)}">
+                <div class="empty-state">
+                    <h3>🧊 冰箱空空如也</h3>
+                    <p style="margin-top: 10px;">还没有添加任何食品，点击上方按钮添加</p>
+                </div>
+            </div>
+
+            <div th:if="${not #lists.isEmpty(items)}">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>食品名称</th>
+                            <th>数量</th>
+                            <th>购买日期</th>
+                            <th>过期日期</th>
+                            <th>存放位置</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="item : ${items}">
+                            <td th:text="${item.foodName}"></td>
+                            <td th:text="${item.quantity} + ' ' + ${item.unit}"></td>
+                            <td th:text="${item.purchaseDate}"></td>
+                            <td th:text="${item.expiryDate}"></td>
+                            <td th:text="${item.storageLocation}"></td>
+                            <td>
+                                <span th:if="${item.expiryDate == null}" class="status-badge status-good">正常</span>
+                                <span th:if="${item.expiryDate != null and item.expiryDate.isBefore(T(java.time.LocalDate).now())}" class="status-badge status-danger">已过期</span>
+                                <span th:if="${item.expiryDate != null and !item.expiryDate.isBefore(T(java.time.LocalDate).now()) and item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))}" class="status-badge status-warning">即将过期</span>
+                                <span th:if="${item.expiryDate != null and !item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))}" class="status-badge status-good">正常</span>
+                            </td>
+                            <td>
+                                <a th:href="@{/inventory/delete/{id}(id=${item.id})}" class="btn btn-small btn-danger"
+                                   onclick="return confirm('确定要删除吗？')">删除</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

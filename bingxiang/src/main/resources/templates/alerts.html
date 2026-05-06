@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>过期提醒 - 智能冰箱管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #764ba2;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .alert-list {
+            display: grid;
+            gap: 15px;
+        }
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        .alert-danger {
+            background: #ffebee;
+            border-color: #e53935;
+        }
+        .alert-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        .alert-info {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+        .alert-item h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .alert-item .date {
+            color: #666;
+            font-size: 14px;
+        }
+        .days-left {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        .days-danger {
+            background: #e53935;
+            color: white;
+        }
+        .days-warning {
+            background: #ffc107;
+            color: #333;
+        }
+        .days-info {
+            background: #2196f3;
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .empty-state h3 {
+            color: #4caf50;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚠️ 过期提醒</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存管理</a>
+                <a th:href="@{/recipes}">菜谱推荐</a>
+                <a th:href="@{/alerts}">过期提醒</a>
+                <a th:href="@{/logout}">退出登录</a>
+            </nav>
+        </header>
+
+        <div class="card">
+            <div th:if="${#lists.isEmpty(items)}">
+                <div class="empty-state">
+                    <h3>✅ 太棒了！</h3>
+                    <p style="margin-top: 10px;">未来7天内没有即将过期的物品</p>
+                    <a th:href="@{/inventory}" class="btn" style="margin-top: 20px;">查看库存</a>
+                </div>
+            </div>
+
+            <div th:if="${not #lists.isEmpty(items)}">
+                <h2 style="color: #667eea; margin-bottom: 20px;">未来7天内即将过期的物品</h2>
+                <div class="alert-list">
+                    <div th:each="item : ${items}" class="alert-item"
+                         th:classappend="${item.expiryDate.isBefore(T(java.time.LocalDate).now())} ? 'alert-danger' : (${item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))} ? 'alert-warning' : 'alert-info')">
+                        <div>
+                            <h3 th:text="${item.foodName}"></h3>
+                            <p class="date">过期日期：<span th:text="${item.expiryDate}"></span></p>
+                        </div>
+                        <div class="days-left"
+                             th:classappend="${item.expiryDate.isBefore(T(java.time.LocalDate).now())} ? 'days-danger' : (${item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))} ? 'days-warning' : 'days-info')">
+                            <span th:if="${item.expiryDate.isBefore(T(java.time.LocalDate).now())}">已过期</span>
+                            <span th:if="${!item.expiryDate.isBefore(T(java.time.LocalDate).now()) and item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))}">即将过期</span>
+                            <span th:if="${!item.expiryDate.isBefore(T(java.time.LocalDate).now().plusDays(3))}">还剩<span th:text="${T(java.time.temporal.ChronoUnit).DAYS.between(T(java.time.LocalDate).now(), item.expiryDate)}"></span>天</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

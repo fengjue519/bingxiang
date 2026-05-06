@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>菜谱推荐 - 智能冰箱管理系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            color: #667eea;
+            font-size: 28px;
+        }
+        .nav-links a {
+            margin-left: 20px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover {
+            color: #764ba2;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .recipe-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .recipe-card {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+        .recipe-card h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+        .recipe-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        .match-badge {
+            background: #4caf50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .recipe-description {
+            color: #555;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        .recipe-ingredients {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .recipe-ingredients strong {
+            color: #2e7d32;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍳 菜谱推荐</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存管理</a>
+                <a th:href="@{/recipes}">菜谱推荐</a>
+                <a th:href="@{/alerts}">过期提醒</a>
+                <a th:href="@{/logout}">退出登录</a>
+            </nav>
+        </header>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 20px;">根据您冰箱里的食材推荐</h2>
+
+            <div th:if="${#lists.isEmpty(recipes)}">
+                <div class="empty-state">
+                    <h3>🍳 暂无推荐</h3>
+                    <p style="margin-top: 10px;">添加更多食材到冰箱，获取更多菜谱推荐</p>
+                    <a th:href="@{/inventory/add}" class="btn" style="margin-top: 20px;">添加食材</a>
+                </div>
+            </div>
+
+            <div th:if="${not #lists.isEmpty(recipes)}">
+                <div class="recipe-grid">
+                    <div th:each="recipe : ${recipes}" class="recipe-card">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <h3 th:text="${recipe.name}"></h3>
+                            <span class="match-badge" th:text="${recipe.matchPercentage} + '% 匹配'"></span>
+                        </div>
+                        <div class="recipe-meta">
+                            <span>⏱️ <span th:text="${recipe.cookingTime}"></span>分钟</span>
+                            <span>📊 <span th:text="${recipe.difficulty}"></span></span>
+                        </div>
+                        <p class="recipe-description" th:text="${recipe.description}"></p>
+                        <div class="recipe-ingredients">
+                            <strong>🥗 食材：</strong><span th:text="${recipe.ingredients}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拍照识别 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 20px; text-decoration: none; color: #667eea; font-weight: 500; }
+        .nav-links a:hover { color: #764ba2; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .upload-area { border: 3px dashed #667eea; border-radius: 10px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { border-color: #764ba2; background: #f8f9ff; }
+        .upload-area h2 { color: #667eea; margin-bottom: 10px; }
+        .upload-area p { color: #999; }
+        #preview { max-width: 300px; max-height: 300px; margin: 20px auto; display: none; border-radius: 10px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 16px; transition: background 0.3s; }
+        .btn:hover { background: #764ba2; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .result-card { background: #f0f4ff; padding: 20px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #667eea; }
+        .result-card h3 { color: #667eea; margin-bottom: 10px; }
+        .food-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .food-item h4 { color: #333; margin-bottom: 8px; }
+        .food-item p { color: #666; font-size: 14px; margin: 4px 0; }
+        .loading { text-align: center; padding: 30px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ai-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-block; }
+        .add-btn { background: #4caf50; color: white; padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; margin-top: 8px; }
+        .add-btn:hover { background: #388e3c; }
+        .warning-box { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #856404; }
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📸 拍照识别食材</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div th:if="${!aiConfigured}" class="warning-box">
+            ⚠️ AI服务未配置。请在 <code>application.properties</code> 中设置 <code>doubao.api.key</code> 后重启应用。
+            <a href="https://console.volcengine.com/ark" target="_blank" style="color: #667eea;">获取API Key</a>
+        </div>
+
+        <div class="card">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <h2>📷 点击拍照或上传图片</h2>
+                <p>支持 JPG、PNG 格式，将自动识别图片中的食材</p>
+                <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="previewImage(this)">
+            </div>
+
+            <img id="preview" alt="预览图片">
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" id="scanBtn" onclick="scanImage()" disabled>
+                    🔍 开始识别
+                </button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: #667eea;">AI正在识别中，请稍候...</p>
+        </div>
+
+        <div id="result" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 15px;">
+                    <span class="ai-badge">AI 识别</span> 识别结果
+                </h2>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('preview');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    document.getElementById('scanBtn').disabled = false;
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function scanImage() {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('scanBtn').disabled = true;
+
+            fetch('/ai/scan', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('scanBtn').disabled = false;
+
+                if (data.success) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('resultContent').innerHTML = formatAiResponse(data.aiResponse);
+                } else {
+                    alert(data.message || '识别失败');
+                }
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('scanBtn').disabled = false;
+                alert('请求失败：' + error.message);
+            });
+        }
+
+        function formatAiResponse(response) {
+            try {
+                let data = response;
+                if (typeof response === 'string') {
+                    const jsonMatch = response.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        data = JSON.parse(jsonMatch[0]);
+                    } else {
+                        return '<div class="result-card"><p>' + response.replace(/\n/g, '<br>') + '</p></div>';
+                    }
+                }
+
+                let html = '';
+                if (data.foods && Array.isArray(data.foods)) {
+                    data.foods.forEach(food => {
+                        html += '<div class="food-item">';
+                        html += '<h4>🥬 ' + food.name + '</h4>';
+                        html += '<p>📁 分类：' + (food.category || '未分类') + '</p>';
+                        html += '<p>⏰ 预计保鲜：' + (food.estimated_shelf_life_days || '未知') + ' 天</p>';
+                        html += '<p>📍 存放位置：' + (food.storage_location || '未指定') + '</p>';
+                        html += '<p>💡 保鲜建议：' + (food.tips || '无') + '</p>';
+                        html += '<button class="add-btn" onclick="addToInventory(\'' + food.name + '\', \'' + (food.category || '') + '\', ' + (food.estimated_shelf_life_days || 7) + ')">➕ 添加到库存</button>';
+                        html += '</div>';
+                    });
+                } else {
+                    html = '<div class="result-card"><p>' + response.replace(/\n/g, '<br>') + '</p></div>';
+                }
+                return html;
+            } catch (e) {
+                return '<div class="result-card"><p>' + response.replace(/\n/g, '<br>') + '</p></div>';
+            }
+        }
+
+        function addToInventory(name, category, shelfLifeDays) {
+            const today = new Date().toISOString().split('T')[0];
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + shelfLifeDays);
+            const expiryStr = expiry.toISOString().split('T')[0];
+
+            const formData = new FormData();
+            formData.append('foodName', name);
+            formData.append('quantity', '1');
+            formData.append('unit', '个');
+            formData.append('purchaseDate', today);
+            formData.append('expiryDate', expiryStr);
+            formData.append('storageLocation', '冷藏室');
+
+            fetch('/inventory/add', { method: 'POST', body: formData })
+            .then(() => alert(name + ' 已添加到库存！'))
+            .catch(err => alert('添加失败：' + err.message));
+        }
+    </script>
+</body>
+</html>

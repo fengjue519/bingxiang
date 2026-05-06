@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购物清单 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 15px; text-decoration: none; color: #667eea; font-weight: 500; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #764ba2; }
+        .btn:disabled { background: #ccc; }
+        .btn-green { background: #4caf50; }
+        .btn-green:hover { background: #388e3c; }
+        .btn-red { background: #e53935; }
+        .btn-red:hover { background: #c62828; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .ai-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .shopping-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f9f9ff; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea; }
+        .shopping-item.purchased { background: #e8f5e9; border-left-color: #4caf50; opacity: 0.7; }
+        .shopping-item .item-info h4 { color: #333; margin-bottom: 4px; }
+        .shopping-item .item-info p { color: #666; font-size: 14px; }
+        .shopping-item .actions { display: flex; gap: 8px; }
+        .add-form { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .add-form input { padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 14px; }
+        .add-form input:focus { outline: none; border-color: #667eea; }
+        .loading { text-align: center; padding: 30px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .warning-box { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #856404; }
+        .empty-state { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 购物清单</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/ai/nutrition}">营养分析</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;">手动添加</h2>
+            <form th:action="@{/ai/shopping-list/add}" method="post" class="add-form">
+                <input type="text" name="itemName" placeholder="食材名称" required style="flex:2;">
+                <input type="number" name="quantity" placeholder="数量" step="0.1" style="flex:1;">
+                <input type="text" name="unit" placeholder="单位" style="flex:1;">
+                <button type="submit" class="btn btn-green">➕ 添加</button>
+            </form>
+
+            <button class="btn" id="aiGenBtn" onclick="generateShoppingList()">
+                🤖 AI智能推荐购买清单
+            </button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: #667eea;">AI正在分析需要补充的食材...</p>
+        </div>
+
+        <div id="aiResult" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 推荐购买清单</h2>
+                <div id="aiResultContent"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;">📋 待购买清单</h2>
+            <div th:if="${#lists.isEmpty(items)}">
+                <div class="empty-state">
+                    <h3>🛒 清单为空</h3>
+                    <p style="margin-top: 10px;">没有待购买的食材</p>
+                </div>
+            </div>
+            <div th:each="item : ${items}" class="shopping-item">
+                <div class="item-info">
+                    <h4 th:text="${item.itemName}"></h4>
+                    <p th:text="${item.quantity} + ' ' + ${item.unit}"></p>
+                </div>
+                <div class="actions">
+                    <a th:href="@{/ai/shopping-list/purchase/{id}(id=${item.id})}" class="btn btn-green btn-sm">✓ 已购买</a>
+                    <a th:href="@{/ai/shopping-list/delete/{id}(id=${item.id})}" class="btn btn-red btn-sm" onclick="return confirm('确定删除？')">✕</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateShoppingList() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('aiResult').style.display = 'none';
+            document.getElementById('aiGenBtn').disabled = true;
+
+            fetch('/ai/shopping-list/generate', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('aiGenBtn').disabled = false;
+                if (data.success) {
+                    document.getElementById('aiResult').style.display = 'block';
+                    document.getElementById('aiResultContent').innerHTML = formatShoppingList(data.aiResponse);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('aiGenBtn').disabled = false;
+                alert('请求失败：' + err.message);
+            });
+        }
+
+        function formatShoppingList(response) {
+            try {
+                let data = response;
+                if (typeof response === 'string') {
+                    const match = response.match(/\[[\s\S]*\]/);
+                    if (match) data = JSON.parse(match[0]);
+                    else return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+                }
+                if (!Array.isArray(data)) data = [data];
+
+                let html = '';
+                data.forEach(item => {
+                    const priorityColor = item.priority === '高' ? '#e53935' : (item.priority === '中' ? '#ff9800' : '#4caf50');
+                    html += '<div class="shopping-item">';
+                    html += '<div class="item-info"><h4>' + item.name + '</h4>';
+                    html += '<p>' + (item.quantity || '') + ' | <span style="color:' + priorityColor + '">' + (item.priority || '') + '优先</span></p>';
+                    html += '<p style="font-size:13px;">' + (item.reason || '') + '</p></div>';
+                    html += '</div>';
+                });
+                return html;
+            } catch (e) {
+                return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

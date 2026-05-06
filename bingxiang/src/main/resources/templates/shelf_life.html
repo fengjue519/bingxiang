@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI保质期 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 15px; text-decoration: none; color: #667eea; font-weight: 500; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 14px; }
+        .btn:hover { background: #764ba2; }
+        .btn:disabled { background: #ccc; }
+        .ai-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        input, select { padding: 10px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 14px; }
+        input:focus, select:focus { outline: none; border-color: #667eea; }
+        .loading { text-align: center; padding: 30px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .shelf-card { background: #f9f9ff; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #4caf50; }
+        .shelf-card h3 { color: #4caf50; margin-bottom: 10px; }
+        .shelf-section { margin: 10px 0; padding: 10px; background: white; border-radius: 8px; }
+        .shelf-section h4 { color: #333; margin-bottom: 8px; }
+        .shelf-section p { color: #555; line-height: 1.6; }
+        .food-select { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⏰ AI保质期估算</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/ai/nutrition}">营养分析</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 智能保质期估算</h2>
+            <div class="food-select">
+                <select id="foodSelect" style="min-width: 200px;">
+                    <option value="">选择冰箱中的食材</option>
+                    <option th:each="item : ${items}" th:value="${item.foodName}" th:text="${item.foodName}"></option>
+                </select>
+                <span style="color: #999;">或输入自定义食材：</span>
+                <input type="text" id="customFood" placeholder="食材名称" style="min-width: 150px;">
+                <select id="storageLocation" style="min-width: 120px;">
+                    <option value="">存放位置</option>
+                    <option value="冷藏室">冷藏室</option>
+                    <option value="冷冻室">冷冻室</option>
+                    <option value="保鲜层">保鲜层</option>
+                    <option value="室温">室温</option>
+                </select>
+                <button class="btn" id="estimateBtn" onclick="estimateShelfLife()">🔍 估算保质期</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: #667eea;">AI正在估算保质期...</p>
+        </div>
+
+        <div id="result" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 保质期估算结果</h2>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('foodSelect').addEventListener('change', function() {
+            if (this.value) document.getElementById('customFood').value = '';
+        });
+        document.getElementById('customFood').addEventListener('input', function() {
+            if (this.value) document.getElementById('foodSelect').value = '';
+        });
+
+        function estimateShelfLife() {
+            const foodName = document.getElementById('customFood').value || document.getElementById('foodSelect').value;
+            const storageLocation = document.getElementById('storageLocation').value;
+
+            if (!foodName) { alert('请选择或输入食材名称'); return; }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('estimateBtn').disabled = true;
+
+            const formData = new FormData();
+            formData.append('foodName', foodName);
+            formData.append('storageLocation', storageLocation);
+
+            fetch('/ai/shelf-life', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('estimateBtn').disabled = false;
+                if (data.success) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('resultContent').innerHTML = formatShelfLife(data.aiResponse);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('estimateBtn').disabled = false;
+                alert('请求失败：' + err.message);
+            });
+        }
+
+        function formatShelfLife(response) {
+            try {
+                let data = response;
+                if (typeof response === 'string') {
+                    const match = response.match(/\{[\s\S]*\}/);
+                    if (match) data = JSON.parse(match[0]);
+                    else return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+                }
+
+                let html = '<div class="shelf-card">';
+                html += '<h3>🥬 ' + (data.food_name || '食材') + '</h3>';
+                if (data.shelf_life_days) html += '<div class="shelf-section"><h4>⏰ 预计保鲜天数</h4><p style="font-size:24px; color:#e53935; font-weight:bold;">' + data.shelf_life_days + ' 天</p></div>';
+                if (data.best_temperature) html += '<div class="shelf-section"><h4>🌡️ 最佳温度</h4><p>' + data.best_temperature + '</p></div>';
+                if (data.storage_tips) html += '<div class="shelf-section"><h4>💡 保鲜建议</h4><p style="white-space:pre-line;">' + data.storage_tips + '</p></div>';
+                if (data.warning_signs) html += '<div class="shelf-section"><h4>⚠️ 变质信号</h4><p style="white-space:pre-line; color:#e53935;">' + data.warning_signs + '</p></div>';
+                if (data.nutrition_tips) html += '<div class="shelf-section"><h4>💪 营养提示</h4><p style="white-space:pre-line;">' + data.nutrition_tips + '</p></div>';
+                html += '</div>';
+                return html;
+            } catch (e) {
+                return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

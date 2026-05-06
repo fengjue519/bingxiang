@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>营养分析 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 15px; text-decoration: none; color: #667eea; font-weight: 500; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 16px; }
+        .btn:hover { background: #764ba2; }
+        .btn:disabled { background: #ccc; }
+        .ai-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .loading { text-align: center; padding: 30px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .warning-box { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; margin-bottom: 20px; color: #856404; }
+        .nutrition-card { background: #f9f9ff; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #667eea; }
+        .nutrition-card h3 { color: #667eea; margin-bottom: 10px; }
+        .nutrition-section { margin: 10px 0; padding: 10px; background: white; border-radius: 8px; }
+        .nutrition-section h4 { color: #333; margin-bottom: 8px; }
+        .nutrition-section p { color: #555; line-height: 1.6; white-space: pre-line; }
+        .score-circle { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, #4caf50, #66bb6a); display: flex; align-items: center; justify-content: center; margin: 20px auto; }
+        .score-circle span { color: white; font-size: 32px; font-weight: bold; }
+        .ingredients-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; }
+        .ingredient-tag { background: #e8f5e9; color: #2e7d32; padding: 6px 12px; border-radius: 20px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💪 营养分析</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/ai/nutrition}">营养分析</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div th:if="${!aiConfigured}" class="warning-box">
+            ⚠️ AI服务未配置。请在 <code>application.properties</code> 中设置 <code>doubao.api.key</code>
+        </div>
+
+        <div class="card">
+            <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 冰箱食材营养分析</h2>
+            <div class="ingredients-list">
+                <span th:each="item : ${items}" class="ingredient-tag" th:text="${item.foodName}"></span>
+                <span th:if="${#lists.isEmpty(items)}" style="color: #999;">冰箱暂无食材</span>
+            </div>
+            <button class="btn" id="analyzeBtn" onclick="analyzeNutrition()">🤖 AI分析营养构成</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p style="color: #667eea;">AI正在分析营养数据...</p>
+        </div>
+
+        <div id="result" style="display: none;">
+            <div class="card">
+                <h2 style="color: #667eea; margin-bottom: 15px;"><span class="ai-badge">AI</span> 营养分析报告</h2>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function analyzeNutrition() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = true;
+
+            fetch('/ai/nutrition', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('analyzeBtn').disabled = false;
+                if (data.success) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('resultContent').innerHTML = formatNutrition(data.aiResponse);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('analyzeBtn').disabled = false;
+                alert('请求失败：' + err.message);
+            });
+        }
+
+        function formatNutrition(response) {
+            try {
+                let data = response;
+                if (typeof response === 'string') {
+                    const match = response.match(/\{[\s\S]*\}/);
+                    if (match) data = JSON.parse(match[0]);
+                    else return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+                }
+
+                let html = '';
+                if (data.health_score) {
+                    html += '<div class="score-circle"><span>' + data.health_score + '</span></div>';
+                    html += '<p style="text-align:center; color:#666; margin-bottom:20px;">健康评分（满分100）</p>';
+                }
+                if (data.total_calories) html += '<div class="nutrition-card"><h3>🔥 总热量估算</h3><p style="font-size:20px; color:#e53935; font-weight:bold;">' + data.total_calories + '</p></div>';
+                if (data.nutrition_breakdown) {
+                    html += '<div class="nutrition-card"><h3>📊 营养构成</h3>';
+                    const nb = data.nutrition_breakdown;
+                    if (nb.protein) html += '<div class="nutrition-section"><h4>🥩 蛋白质</h4><p>' + nb.protein + '</p></div>';
+                    if (nb.fat) html += '<div class="nutrition-section"><h4>🧈 脂肪</h4><p>' + nb.fat + '</p></div>';
+                    if (nb.carbs) html += '<div class="nutrition-section"><h4>🍚 碳水化合物</h4><p>' + nb.carbs + '</p></div>';
+                    if (nb.vitamins) html += '<div class="nutrition-section"><h4>🍊 维生素</h4><p>' + nb.vitamins + '</p></div>';
+                    if (nb.minerals) html += '<div class="nutrition-section"><h4>🦴 矿物质</h4><p>' + nb.minerals + '</p></div>';
+                    html += '</div>';
+                }
+                if (data.suggestions) {
+                    html += '<div class="nutrition-card"><h3>💡 改善建议</h3>';
+                    data.suggestions.forEach(s => html += '<p style="margin:5px 0; color:#555;">• ' + s + '</p>');
+                    html += '</div>';
+                }
+                if (data.missing_nutrients) {
+                    html += '<div class="nutrition-card" style="border-left-color:#ff9800;"><h3 style="color:#ff9800;">⚠️ 缺乏的营养素</h3>';
+                    data.missing_nutrients.forEach(m => html += '<p style="margin:5px 0; color:#555;">• ' + m + '</p>');
+                    html += '</div>';
+                }
+                if (data.recommended_foods) {
+                    html += '<div class="nutrition-card" style="border-left-color:#4caf50;"><h3 style="color:#4caf50;">🛒 建议补充的食物</h3>';
+                    data.recommended_foods.forEach(f => html += '<p style="margin:5px 0; color:#555;">• ' + f + '</p>');
+                    html += '</div>';
+                }
+                return html || '<div style="white-space:pre-line; color:#555;">' + JSON.stringify(data, null, 2) + '</div>';
+            } catch (e) {
+                return '<div style="white-space:pre-line; color:#555;">' + response + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

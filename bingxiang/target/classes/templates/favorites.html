@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>菜谱收藏 - 智能冰箱管理系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #667eea; font-size: 28px; }
+        .nav-links a { margin-left: 15px; text-decoration: none; color: #667eea; font-weight: 500; font-size: 14px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: #e53935; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; border: none; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #c62828; }
+        .recipe-card { background: #f9f9ff; padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ff9800; }
+        .recipe-card h3 { color: #ff9800; margin-bottom: 8px; }
+        .recipe-card .date { color: #999; font-size: 13px; }
+        .recipe-card .content { color: #555; line-height: 1.6; white-space: pre-line; margin-top: 10px; max-height: 200px; overflow: hidden; }
+        .recipe-card .content.expanded { max-height: none; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⭐ 菜谱收藏</h1>
+            <nav class="nav-links">
+                <a th:href="@{/}">首页</a>
+                <a th:href="@{/inventory}">库存</a>
+                <a th:href="@{/ai/scan}">拍照识别</a>
+                <a th:href="@{/ai/recipes}">AI菜谱</a>
+                <a th:href="@{/ai/daily-plan}">今日菜谱</a>
+                <a th:href="@{/ai/shopping-list}">购物清单</a>
+                <a th:href="@{/ai/nutrition}">营养分析</a>
+                <a th:href="@{/logout}">退出</a>
+            </nav>
+        </header>
+
+        <div th:if="${#lists.isEmpty(favorites)}">
+            <div class="card">
+                <div class="empty-state">
+                    <h3>⭐ 暂无收藏</h3>
+                    <p style="margin-top: 10px;">在AI菜谱推荐中收藏你喜欢的菜谱</p>
+                </div>
+            </div>
+        </div>
+
+        <div th:each="fav : ${favorites}" class="card">
+            <div class="recipe-card">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <h3 th:text="${fav.recipeName}"></h3>
+                        <p class="date" th:text="${fav.createdAt}"></p>
+                    </div>
+                    <a th:href="@{/ai/favorites/delete/{id}(id=${fav.id})}" class="btn" onclick="return confirm('确定取消收藏？')">取消收藏</a>
+                </div>
+                <div class="content" th:text="${fav.content}" onclick="this.classList.toggle('expanded')" style="cursor:pointer;" title="点击展开/收起"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
